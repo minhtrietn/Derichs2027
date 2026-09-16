@@ -25,25 +25,30 @@ def run_webcam():
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("Mất kết nối khung hình hoặc hết stream.")
             break
 
-        # 4. Chạy suy luận tối ưu
-        # - device='0': Bắt buộc chạy trên lõi GPU CUDA
-        # - half=True: Dùng số thực 16-bit (FP16), giảm một nửa dung lượng VRAM tiêu thụ và tăng tốc
-        # - verbose=False: Tắt in log ra terminal để tránh ngốn tài nguyên CPU
-        results = model.predict(source=frame, device='0', half=True, verbose=False)
+        # 1. Đưa khung hình vào mô hình YOLO để nhận diện (tắt verbose để đỡ rác terminal)
+        results = model(frame, verbose=False)
 
-        # 5. Vẽ hộp bao chuẩn (Hình chữ nhật ngang) lên ảnh
-        # Hàm plot() tự động đóng gói toàn bộ khâu vẽ bounding box, tên class và độ tin cậy
-        annotated_frame = results[0].plot()
+        # 2. Trích xuất kết quả
+        for result in results:
+            # Lấy tọa độ [x_min, y_min, x_max, y_max] và chuyển thành list Python chuẩn
+            boxes_list = result.boxes.xyxy.tolist()
+            
+            # Lấy thêm ID của vật thể (ví dụ: 0 là người, 2 là ô tô...)
+            class_ids = result.boxes.cls.tolist()
 
-        cv2.imshow("YOLOv8 Nano Detection - GPU", annotated_frame)
+            # Nếu nhận diện được ít nhất 1 vật thể thì in ra
+            if len(boxes_list) > 0:
+                print(f"Phát hiện {len(boxes_list)} vật thể:")
+                print("Tọa độ box:", boxes_list)
+                print("Class ID:", class_ids)
+                print("-" * 30)
 
-        # Giải phóng RAM lập tức cho vòng lặp tiếp theo
-        del results
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # Ghi chú: Nếu bạn không muốn hiện cửa sổ video nữa, hãy thêm dấu # trước 2 dòng dưới đây
+        # cv2.imshow('Camera', frame)
+        # if cv2.waitKey(1) & 0xFF == ord('q'): break
 
     cap.release()
     cv2.destroyAllWindows()
