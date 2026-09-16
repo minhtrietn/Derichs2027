@@ -12,7 +12,8 @@ def run_webcam():
     model = YOLO('yolov8n.pt')
 
     # 3. Thiết lập giới hạn luồng thu
-    cap = cv2.VideoCapture(0)
+    url = "http://192.168.0.104:8080/video"
+    cap = cv2.VideoCapture(url)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
