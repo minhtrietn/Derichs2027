@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DERICH YOLO Auto-Training Studio — YOLOv8 · YOLO11 · YOLO26</title>
+  <link rel="stylesheet" href="/static/styles.css?v=4" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="brand">
+        <button type="button" id="btnToggleSidebar" class="icon-toggle-btn" title="Bật/Tắt thanh công cụ bên trái (Ctrl+B)" aria-label="Bật/Tắt thanh công cụ bên trái" aria-expanded="true">
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="3.5" width="15" height="13" rx="2"/>
+            <path d="M7.5 3.5v13"/>
+          </svg>
+        </button>
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 28 28" width="22" height="22" fill="none">
+            <rect x="2.5" y="2.5" width="23" height="23" rx="6" stroke="currentColor" stroke-width="2.2"/>
+            <path d="M8 10.5L14 7L20 10.5V17.5L14 21L8 17.5V10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M14 7V14M14 14L20 10.5M14 14L8 10.5" stroke="currentColor" stroke-width="1.6"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">DERICH YOLO Studio</div>
+          <div class="brand-sub">WebSocket Auto-Training · YOLOv8 / 11 / 12 / 26 · Small-Data (&lt;100 ảnh)</div>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <div class="project-bar">
+          <label for="projectSelect">Dự án:</label>
+          <select id="projectSelect" class="input-sm"></select>
+          <button id="btnNewProject" class="btn btn-secondary btn-sm">+ Dự án mới</button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div id="cudaAdvisoryPill" class="pill pill-warn hidden" title="Nhấn để xem hướng dẫn bật GPU CUDA">
+          ⚠️ GPU RTX (PyTorch CPU)
+        </div>
+        <div id="hwTelemetry" class="telemetry-strip">
+          <span class="tele-item" id="teleOs">OS --</span>
+          <span class="tele-item" id="teleCpu">CPU --%</span>
+          <span class="tele-item" id="teleRam">RAM -- GB</span>
+          <span class="tele-item" id="teleGpu">GPU --</span>
+        </div>
+        <div id="wsBadge" class="ws-badge ws-connecting">
+          <span class="dot"></span>
+          <span id="wsBadgeText">Đang nối WS...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="workspace" id="workspace">
+      <!-- Left Navigation Rail -->
+      <aside class="sidebar" id="mainSidebar">
+        <nav class="nav-list" id="mainNav">
+          <button class="nav-item active" data-tab="dataset">
+            <span class="nav-step">1</span>
+            <span class="nav-text">
+              <strong>Dữ liệu &amp; Auto-Label</strong>
+              <small>Nhiều nguồn · Xử lý hộ · Vẽ nhãn</small>
+            </span>
+          </button>
+          <button class="nav-item" data-tab="advisor">
+            <span class="nav-step">2</span>
+            <span class="nav-text">
+              <strong>Model theo Nền tảng</strong>
+              <small>Android · Linux · Windows</small>
+            </span>
+          </button>
+          <button class="nav-item" data-tab="config">
+            <span class="nav-step">3</span>
+            <span class="nav-text">
+              <strong>Thông số &amp; Tác động</strong>
+              <small>Tối ưu &lt;100 ảnh · Ghi chú chi tiết</small>
+            </span>
+          </button>
+          <button class="nav-item" data-tab="train">
+            <span class="nav-step">4</span>
+            <span class="nav-text">
+              <strong>Huấn luyện Trực tiếp</strong>
+              <small>WebSocket Realtime · Biểu đồ mAP</small>
+            </span>
+          </button>
+          <button class="nav-item" data-tab="export">
+            <span class="nav-step">5</span>
+            <span class="nav-text">
+              <strong>Xuất File &amp; Kiểm thử</strong>
+              <small>ONNX · TF32 · PT · LiteRT · NCNN</small>
+            </span>
+          </button>
+        </nav>
+
+        <div class="sidebar-summary" id="sidebarSummary">
+          <div class="sum-title">Cấu hình đang chọn</div>
+          <div class="sum-row"><span>Model:</span> <strong id="sumModel">yolo26n.pt</strong></div>
+          <div class="sum-row"><span>Preset:</span> <strong id="sumPreset">Ít ảnh (&lt;100)</strong></div>
+          <div class="sum-row"><span>Image Size:</span> <strong id="sumImgsz">640 px</strong></div>
+          <div class="sum-row"><span>Freeze:</span> <strong id="sumFreeze">10 tầng</strong></div>
+          <div class="sum-row"><span>Ảnh đã nhãn:</span> <strong id="sumLabeled">0 / 0</strong></div>
+          <button id="btnQuickAutoTrain" class="btn btn-primary btn-block mt-12">
+            🚀 Bắt đầu Train Tự động
+          </button>
+        </div>
+      </aside>
+
+      <!-- Edge Toggle Button for Left Sidebar -->
+      <button type="button" id="btnSidebarEdgeToggle" class="sidebar-edge-toggle" title="Thu gọn thanh bên để tăng diện tích (Ctrl+B)" aria-label="Bật/Tắt thanh bên">
+        <span class="edge-chevron" id="sidebarEdgeChevron">◀</span>
+      </button>
+
+      <!-- Main Tab Viewport -->
+      <main class="content">
+        <!-- Global Task Progress Bar -->
+        <div id="globalProgressBar" class="progress-banner hidden">
+          <div class="progress-banner-top">
+            <span id="globalProgressText">Đang xử lý...</span>
+            <strong id="globalProgressPct">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div id="globalProgressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- =========================================================
+             TAB 1: DATASET, MULTI-INPUT, AUTO-PREPROCESS & AUTO-LABEL
+             ========================================================= -->
+        <section id="tab-dataset" class="tab-panel active">
+          <div class="section-header">
+            <div>
+              <h1>1. Quản lý Dữ liệu, Xử lý hộ &amp; Tự động đánh dấu</h1>
+              <p>Hỗ trợ nhiều nguồn đầu vào (ảnh, ZIP YOLO/COCO/VOC, video, webcam, thư mục máy, ảnh mẫu 3D) kèm tiền xử lý &amp; gán nhãn tự động.</p>
+            </div>
+            <div class="header-actions">
+              <button type="button" id="btnHeaderFocusLabel" class="btn btn-secondary btn-sm" title="Ẩn thanh công cụ &amp; mở rộng vùng hiển thị ảnh để label (F)">⛶ Mở rộng vùng Label</button>
+              <button id="btnRefreshDataset" class="btn btn-secondary btn-sm">↻ Tải lại</button>
+              <button id="btnClearImages" class="btn btn-danger-outline btn-sm">🗑️ Xóa hết ảnh</button>
+            </div>
+          </div>
+
+          <div id="datasetToolsRegion" class="dataset-tools-region">
+          <div class="grid-2-uneven">
+            <!-- Left: Multi-Source Ingestion + Classes -->
+            <div class="card">
+              <div class="card-header">
+                <h3>📥 Nguồn dữ liệu đầu vào (6 tùy chọn)</h3>
+              </div>
+              <div class="subtabs" id="ingestTabs">
+                <button class="subtab active" data-ingest="images">🖼️ Ảnh</button>
+                <button class="subtab" data-ingest="zip">📦 File ZIP</button>
+                <button class="subtab" data-ingest="video">🎬 Video</button>
+                <button class="subtab" data-ingest="webcam">📷 Webcam</button>
+                <button class="subtab" data-ingest="folder">📂 Thư mục</button>
+                <button class="subtab" data-ingest="demo">🧊 Mẫu 3D</button>
+              </div>
+
+              <!-- Ingest: Images -->
+              <div class="ingest-pane active" id="ingest-images">
+                <div id="imageDropZone" class="dropzone">
+                  <div class="dropzone-icon">🖼️</div>
+                  <div class="dropzone-title">Kéo thả nhiều ảnh vào đây hoặc nhấn để chọn</div>
+                  <div class="dropzone-sub">Hỗ trợ JPG, PNG, WEBP, BMP · Tự động xoay EXIF &amp; chuẩn hóa kích thước</div>
+                  <input type="file" id="inputImageFiles" multiple accept="image/*" hidden />
+                </div>
+              </div>
+
+              <!-- Ingest: ZIP -->
+              <div class="ingest-pane" id="ingest-zip">
+                <p class="muted-text">Tự động nhận dạng cấu trúc <strong>YOLO (.txt + data.yaml)</strong>, <strong>Roboflow ZIP</strong>, <strong>COCO JSON</strong>, <strong>Pascal VOC (.xml)</strong> hoặc thư mục ảnh thô chưa gán nhãn.</p>
+                <div class="inline-row mt-8">
+                  <input type="file" id="inputZipFile" accept=".zip" class="input" />
+                  <button id="btnUploadZip" class="btn btn-primary">📦 Nhập ZIP</button>
+                </div>
+              </div>
+
+              <!-- Ingest: Video -->
+              <div class="ingest-pane" id="ingest-video">
+                <p class="muted-text">Quay 1 video ngắn 10–20 giây xoay quanh khối lập phương / hình trụ / hình cầu → phần mềm tự cắt khung hình rõ nét, bỏ khung mờ &amp; trùng lặp.</p>
+                <div class="form-grid-3 mt-8">
+                  <div class="field">
+                    <label>File Video (.mp4, .avi, .mov)</label>
+                    <input type="file" id="inputVideoFile" accept="video/*" class="input" />
+                  </div>
+                  <div class="field">
+                    <label>Số ảnh / giây (FPS cắt)</label>
+                    <input type="number" id="videoFps" value="2" min="0.2" max="15" step="0.2" class="input" />
+                  </div>
+                  <div class="field">
+                    <label>Số ảnh tối đa</label>
+                    <input type="number" id="videoMaxFrames" value="60" min="5" max="300" class="input" />
+                  </div>
+                </div>
+                <div class="inline-row mt-8">
+                  <label class="check-label"><input type="checkbox" id="videoSkipBlur" checked /> Tự bỏ khung bị mờ</label>
+                  <label class="check-label"><input type="checkbox" id="videoDedup" checked /> Tự bỏ khung trùng lặp</label>
+                  <button id="btnUploadVideo" class="btn btn-primary">🎬 Trích xuất ảnh</button>
+                </div>
+              </div>
+
+              <!-- Ingest: Webcam -->
+              <div class="ingest-pane" id="ingest-webcam">
+                <p class="muted-text">Chụp trực tiếp từ camera máy tính hoặc điện thoại — bật <strong>Chụp liên tiếp (Burst)</strong> để xoay vật thể thu thập 30–60 góc nhìn trong vài giây.</p>
+                <div class="webcam-wrap mt-8">
+                  <video id="webcamVideo" autoplay playsinline muted class="webcam-preview"></video>
+                  <canvas id="webcamCanvas" hidden></canvas>
+                  <div class="webcam-controls">
+                    <button id="btnStartCam" class="btn btn-secondary">▶ Bật Camera</button>
+                    <button id="btnSnapCam" class="btn btn-primary" disabled>📸 Chụp 1 ảnh</button>
+                    <button id="btnBurstCam" class="btn btn-accent" disabled>⚡ Chụp liên tiếp (0.6s)</button>
+                    <button id="btnStopCam" class="btn btn-danger-outline" disabled>⏹ Tắt</button>
+                    <span id="camCountBadge" class="badge">Đã chụp: 0</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ingest: Local Folder -->
+              <div class="ingest-pane" id="ingest-folder">
+                <p class="muted-text">Nhập đường dẫn thư mục chứa ảnh (và file nhãn .txt / .xml / .json nếu có) ngay trên ổ cứng máy tính này.</p>
+                <div class="inline-row mt-8">
+                  <input type="text" id="inputLocalFolder" placeholder="VD: /home/user/datasets/shapes hoặc C:\Users\...\shapes_dataset" class="input flex-1" />
+                  <button id="btnIngestFolder" class="btn btn-primary">📂 Nhập thư mục</button>
+                </div>
+              </div>
+
+              <!-- Ingest: Demo 3D Shapes -->
+              <div class="ingest-pane" id="ingest-demo">
+                <p class="muted-text">Tạo nhanh bộ ảnh <strong>Hình khối 3D đổ bóng chân thực</strong> (<code>cube</code> - khối lập phương, <code>cylinder</code> - hình trụ tròn, <code>sphere</code> - hình cầu) số lượng ít (&lt;100 ảnh) để thử ngay toàn bộ quy trình Auto-Label, Train &amp; Export!</p>
+                <div class="form-grid-3 mt-8">
+                  <div class="field">
+                    <label>Số lượng ảnh (&lt;100)</label>
+                    <input type="number" id="demoCount" value="45" min="12" max="96" class="input" />
+                  </div>
+                  <div class="field">
+                    <label>Trạng thái nhãn</label>
+                    <select id="demoIncludeLabels" class="input">
+                      <option value="true">Có sẵn nhãn chuẩn (Train ngay)</option>
+                      <option value="false">Ảnh thô chưa nhãn (Thử Auto-Label)</option>
+                    </select>
+                  </div>
+                  <div class="field align-end">
+                    <button id="btnGenerateDemo" class="btn btn-primary btn-block">🧊 Tạo bộ ảnh 3D ngay</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Class Labels Manager -->
+              <div class="divider"></div>
+              <div class="class-manager">
+                <div class="cm-header">
+                  <strong>🏷️ Danh sách Lớp vật thể (Classes)</strong>
+                  <small class="muted-text">Nhập tên tiếng Anh hoặc tiếng Việt (VD: cube, cylinder, sphere)</small>
+                </div>
+                <div id="classChipList" class="chip-list"></div>
+                <div class="inline-row mt-8">
+                  <input type="text" id="inputNewClass" placeholder="Thêm lớp mới (VD: cone, pyramid...)" class="input flex-1" />
+                  <button id="btnAddClass" class="btn btn-secondary">+ Thêm lớp</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Health Diagnostics -->
+            <div class="card">
+              <div class="card-header">
+                <h3>🩺 Phân tích Sức khỏe Dataset (&lt;100 ảnh)</h3>
+                <span id="healthRegimeBadge" class="badge badge-accent">--</span>
+              </div>
+              <div class="kpi-mini-grid">
+                <div class="kpi-mini"><span id="statTotalImgs">0</span><label>Tổng ảnh</label></div>
+                <div class="kpi-mini"><span id="statLabeledImgs">0</span><label>Đã gán nhãn</label></div>
+                <div class="kpi-mini"><span id="statUnlabeledImgs">0</span><label>Chưa nhãn</label></div>
+                <div class="kpi-mini"><span id="statTotalBoxes">0</span><label>Tổng Boxes</label></div>
+              </div>
+              <div id="classDistBars" class="dist-bars mt-12"></div>
+              <div id="healthAlerts" class="alert-stack mt-12"></div>
+            </div>
+          </div>
+
+          <!-- Auto-Preprocessing & Auto-Labeling Row -->
+          <div class="grid-2 mt-16">
+            <!-- Auto Preprocessing -->
+            <div class="card">
+              <div class="card-header">
+                <h3>🧹 Tự động Tiền xử lý dữ liệu (Xử lý hộ)</h3>
+              </div>
+              <p class="muted-text">Làm sạch ảnh lỗi, khử ảnh trùng bằng dHash, lọc ảnh mờ, thu gọn ảnh chụp điện thoại quá lớn (&gt;1280px) và kiểm tra tọa độ hộp nhãn.</p>
+              <div class="check-grid mt-8">
+                <label class="check-label"><input type="checkbox" id="ppDedup" checked /> Xóa ảnh trùng lặp (dHash)</label>
+                <label class="check-label"><input type="checkbox" id="ppCleanLabels" checked /> Chuẩn hóa &amp; kẹp tọa độ hộp nhãn</label>
+                <label class="check-label"><input type="checkbox" id="ppBlur" /> Lọc bỏ ảnh bị mờ (Laplacian &lt; 35)</label>
+                <label class="check-label"><input type="checkbox" id="ppClahe" /> Cân bằng tương phản sáng tối (CLAHE)</label>
+              </div>
+              <div class="inline-row mt-12">
+                <div class="field inline-field">
+                  <label>Cạnh tối đa (px):</label>
+                  <input type="number" id="ppMaxSide" value="1280" min="320" max="4096" step="64" class="input input-sm" style="width:96px" />
+                </div>
+                <button id="btnRunPreprocess" class="btn btn-secondary">🧹 Chạy Tiền xử lý tự động</button>
+              </div>
+            </div>
+
+            <!-- Auto Labeling -->
+            <div class="card card-accent">
+              <div class="card-header">
+                <h3>✨ Tự động Đánh dấu (Auto-Labeling)</h3>
+              </div>
+              <div class="form-grid-2">
+                <div class="field">
+                  <label>Bộ máy Tự động đánh dấu</label>
+                  <select id="alEngine" class="input">
+                    <option value="cv_smart">📐 Smart CV Offline (Khuyên dùng cho Hình khối — 0MB tải)</option>
+                    <option value="open_vocab">🧠 Open-Vocabulary AI (YOLO-World / YOLOE — Prompt tự do)</option>
+                    <option value="yolo_model">🎯 Mô hình YOLO có sẵn / Best.pt (Active Learning)</option>
+                  </select>
+                </div>
+                <div class="field" id="alClassModeWrap">
+                  <label>Chế độ gán nhãn (Smart CV)</label>
+                  <select id="alClassMode" class="input">
+                    <option value="auto_geometry">Tự nhận dạng hình học (cube / cylinder / sphere)</option>
+                    <option value="single_class">Gán tất cả vào 1 lớp cố định bên dưới</option>
+                  </select>
+                </div>
+                <div class="field" id="alTargetClassWrap">
+                  <label>Lớp mục tiêu (khi chụp 1 loại vật thể)</label>
+                  <select id="alTargetClass" class="input"></select>
+                </div>
+                <div class="field" id="alModelWrap" style="display:none">
+                  <label>Trọng số YOLO dùng để gán nhãn</label>
+                  <input type="text" id="alModelName" value="yolov8s-worldv2.pt" class="input" />
+                </div>
+              </div>
+              <div class="inline-row mt-8">
+                <div class="field inline-field flex-1">
+                  <label id="alSensLabel">Độ nhạy / Ngưỡng tin cậy: <strong id="alSensVal">0.50</strong></label>
+                  <input type="range" id="alSensitivity" min="0.1" max="0.9" step="0.05" value="0.5" />
+                </div>
+                <label class="check-label"><input type="checkbox" id="alOverwrite" /> Ghi đè nhãn cũ</label>
+                <button id="btnRunAutoLabel" class="btn btn-primary">✨ Tự động đánh dấu</button>
+              </div>
+            </div>
+          </div>
+          </div><!-- /#datasetToolsRegion -->
+
+          <!-- Gallery + Visual Canvas Label Editor -->
+          <div class="card mt-16 labeler-card" id="labelerCard">
+            <div class="card-header labeler-card-header">
+              <div class="inline-row">
+                <h3>🎨 Thư viện ảnh &amp; Trình chỉnh sửa Nhãn trực quan</h3>
+                <span id="galleryCount" class="badge badge-muted">0 ảnh</span>
+              </div>
+              <div class="inline-row labeler-header-controls">
+                <select id="galleryFilter" class="input input-sm">
+                  <option value="all">Tất cả ảnh</option>
+                  <option value="unlabeled">Chỉ ảnh chưa nhãn</option>
+                  <option value="labeled">Chỉ ảnh đã có nhãn</option>
+                </select>
+                <button type="button" id="btnToggleGallery" class="btn btn-secondary btn-sm" title="Bật/Tắt danh sách ảnh nhỏ (G)">◧ Ẩn khung ảnh</button>
+                <button type="button" id="btnToggleSetupTools" class="btn btn-secondary btn-sm" title="Ẩn/Hiện khu vực nhập dữ liệu &amp; xử lý ở trên">🧰 Ẩn công cụ trên</button>
+                <button type="button" id="btnToggleFocusLabel" class="btn btn-primary btn-sm" title="Tắt thanh bên &amp; mở rộng tối đa diện tích hiển thị ảnh cần label (F)">⛶ Mở rộng Label</button>
+              </div>
+            </div>
+
+            <div class="labeler-workspace" id="labelerWorkspace">
+              <div class="gallery-panel" id="galleryPanel">
+                <div class="gallery-panel-bar">
+                  <label class="check-label gallery-select-all" title="Chọn tất cả ảnh đang hiển thị">
+                    <input type="checkbox" id="chkSelectAllGallery" />
+                    <span>Chọn tất cả</span>
+                  </label>
+                  <div class="gallery-bar-actions">
+                    <button type="button" id="btnDeleteSelectedImgs" class="btn btn-danger btn-xs hidden" title="Xóa các ảnh đã đánh dấu">🗑️ Xóa (<span id="selectedImgsCount">0</span>)</button>
+                    <button type="button" id="btnToggleGalleryWide" class="btn btn-secondary btn-xs" title="Mở rộng / Thu nhỏ cột khung ảnh">⬌</button>
+                  </div>
+                </div>
+                <div class="gallery-body">
+                  <div class="gallery-scroll" id="galleryScroll">
+                    <div class="gallery-column" id="imageGallery"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Side Toggle Toolbar Rail -->
+              <div class="labeler-side-rail" id="labelerSideRail" role="toolbar" aria-label="Thanh công cụ bật tắt diện tích hiển thị ảnh">
+                <button type="button" id="btnRailToggleGallery" class="rail-btn active" title="Bật/Tắt khung ảnh nhỏ bên trái (G)">
+                  <span id="railGalleryIcon">◀</span>
+                </button>
+                <button type="button" id="btnRailWideGallery" class="rail-btn" title="Mở rộng cột khung ảnh nhỏ (3 cột)">
+                  <span>⬌</span>
+                </button>
+                <span class="rail-sep"></span>
+                <button type="button" id="btnRailToggleSidebar" class="rail-btn active" title="Bật/Tắt thanh menu bên cạnh (Ctrl+B)">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.8"/>
+                    <path d="M5.5 2.5v11"/>
+                  </svg>
+                </button>
+                <button type="button" id="btnRailToggleSetup" class="rail-btn active" title="Bật/Tắt bảng nhập &amp; tiền xử lý phía trên">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1.5" y="2.5" width="13" height="11" rx="1.8"/>
+                    <path d="M1.5 6.5h13"/>
+                  </svg>
+                </button>
+                <button type="button" id="btnRailToggleFocus" class="rail-btn" title="Mở rộng tối đa diện tích Label (F)">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="canvas-column">
+                <div class="canvas-toolbar">
+                  <div class="inline-row">
+                    <button type="button" id="btnPrevImg" class="btn btn-secondary btn-sm">← Trước</button>
+                    <span id="editorFilename" class="editor-fname">Chọn một ảnh bên trái để xem/chỉnh nhãn</span>
+                    <button type="button" id="btnNextImg" class="btn btn-secondary btn-sm">Sau →</button>
+                  </div>
+                  <div class="inline-row">
+                    <div class="zoom-group" title="Phóng to / Thu nhỏ ảnh đang label">
+                      <button type="button" id="btnZoomOut" class="btn btn-secondary btn-xs" title="Thu nhỏ">−</button>
+                      <button type="button" id="btnZoomReset" class="btn btn-secondary btn-xs" title="Vừa khung">Fit</button>
+                      <button type="button" id="btnZoomIn" class="btn btn-secondary btn-xs" title="Phóng to">+</button>
+                    </div>
+                    <label for="editorActiveClass">Lớp:</label>
+                    <select id="editorActiveClass" class="input input-sm"></select>
+                    <button type="button" id="btnDeleteSelectedBox" class="btn btn-danger-outline btn-sm" title="Phím Delete">Xóa hộp</button>
+                    <button type="button" id="btnClearBoxesImg" class="btn btn-danger-outline btn-sm">Xóa hết hộp</button>
+                    <button type="button" id="btnDeleteCurrentImg" class="btn btn-danger-outline btn-sm" title="Xóa ảnh đang hiển thị khỏi dự án">🗑️ Xóa ảnh</button>
+                    <button type="button" id="btnSaveLabels" class="btn btn-primary btn-sm">💾 Lưu nhãn</button>
+                  </div>
+                </div>
+                <div class="canvas-stage" id="canvasStage">
+                  <canvas id="labelCanvas"></canvas>
+                  <div id="canvasEmptyHint" class="canvas-empty">
+                    Chọn 1 ảnh ở danh sách bên trái → kéo chuột trực tiếp trên ảnh để vẽ khung Bounding Box, hoặc bấm <strong>Tự động đánh dấu</strong> ở trên.
+                  </div>
+                </div>
+                <div class="canvas-footer">
+                  <div id="editorBoxList" class="box-chip-list"></div>
+                  <small class="muted-text">Mẹo: Kéo chuột để vẽ hộp mới · Click hộp để chọn · <kbd>Delete</kbd> xóa hộp · <kbd>←</kbd>/<kbd>→</kbd> chuyển ảnh · <kbd>G</kbd> ẩn/hiện khung ảnh · <kbd>Ctrl+B</kbd> ẩn/hiện thanh bên · <kbd>F</kbd> mở rộng</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             TAB 2: PLATFORM DEPLOYMENT ADVISOR (ANDROID / LINUX / WINDOWS)
+             ========================================================= -->
+        <section id="tab-advisor" class="tab-panel">
+          <div class="section-header">
+            <div>
+              <h1>2. Tư vấn chọn Model &amp; Định dạng theo Nền tảng triển khai</h1>
+              <p>Chọn hệ điều hành mục tiêu (Android, Linux, Windows, iOS) để xem khuyến nghị kiến trúc YOLO, kích thước ảnh và định dạng xuất tối ưu nhất — bấm 1 nút để áp dụng ngay.</p>
+            </div>
+            <div class="subtabs" id="platformFilterTabs">
+              <button class="subtab active" data-os="all">Tất cả</button>
+              <button class="subtab" data-os="Android">📱 Android</button>
+              <button class="subtab" data-os="Linux">🐧 Linux</button>
+              <button class="subtab" data-os="Windows">🪟 Windows</button>
+              <button class="subtab" data-os="iOS / macOS">🍎 iOS / Mac</button>
+            </div>
+          </div>
+
+          <div id="platformCardsGrid" class="platform-grid"></div>
+
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>🧬 So sánh các thế hệ YOLO (YOLOv8 · YOLO11 · YOLO12 · YOLO26 &amp; Custom .pt)</h3>
+            </div>
+            <div class="info-banner mb-12">
+              <strong>📌 Lưu ý về tên phiên bản "YOLOv8 / 11 / 23":</strong>
+              Trong hệ sinh thái Ultralytics chính thức, các thế hệ chuẩn gồm <strong>YOLOv8 (2023)</strong>, <strong>YOLO11 (2024–2025)</strong>, <strong>YOLO12 (2025)</strong> và bản mới nhất <strong>YOLO26 (2026 — bỏ DFL, NMS-Free, tối ưu biên/Android)</strong>. Không có bản chính thức tên "YOLO23" (thường là gõ nhầm từ YOLO26 hoặc năm 2023 của YOLOv8). Ngoài các bản chuẩn này, bạn có thể tải trực tiếp file <code>.pt</code> tùy chỉnh bất kỳ bên dưới!
+            </div>
+            <div id="familyCardsGrid" class="family-grid"></div>
+
+            <div class="divider"></div>
+            <div class="inline-row">
+              <div>
+                <strong>📦 Tải lên trọng số tùy chỉnh (Custom <code>.pt</code>)</strong>
+                <div class="muted-text">Nếu bạn có file <code>best.pt</code> hoặc kiến trúc tùy chỉnh riêng, tải lên đây để chọn huấn luyện tiếp (Fine-tune).</div>
+              </div>
+              <div class="inline-row">
+                <input type="file" id="inputCustomWeight" accept=".pt" class="input" />
+                <button id="btnUploadCustomWeight" class="btn btn-secondary">⬆ Tải lên .pt</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             TAB 3: TRAINING CONFIGURATION & HYPERPARAMETER IMPACT NOTES
+             ========================================================= -->
+        <section id="tab-config" class="tab-panel">
+          <div class="section-header">
+            <div>
+              <h1>3. Cấu hình Huấn luyện &amp; Ghi chú Tác động Thông số</h1>
+              <p>Mặc định đã tối ưu sẵn cho <strong>dataset ít ảnh (&lt;100 ảnh)</strong>. Mỗi thông số đều đi kèm giải thích rõ thay đổi Tăng / Giảm sẽ ảnh hưởng thế nào.</p>
+            </div>
+            <div class="header-actions">
+              <button id="btnResetPreset" class="btn btn-secondary btn-sm">↺ Khôi phục mặc định Small-Data</button>
+              <button id="btnStartTrainFromConfig" class="btn btn-primary">🚀 Bắt đầu Train Tự động</button>
+            </div>
+          </div>
+
+          <!-- Presets -->
+          <div class="card">
+            <div class="card-header">
+              <h3>⚡ Bộ cấu hình dựng sẵn (Presets)</h3>
+            </div>
+            <div id="presetCards" class="preset-grid"></div>
+          </div>
+
+          <!-- Model Picker -->
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>🤖 Chọn Kiến trúc &amp; Cỡ Model YOLO</h3>
+              <div class="subtabs" id="modelFamilyTabs">
+                <button class="subtab active" data-family="yolo26">YOLO26 (Mới nhất)</button>
+                <button class="subtab" data-family="yolo11">YOLO11</button>
+                <button class="subtab" data-family="yolov8">YOLOv8</button>
+                <button class="subtab" data-family="yolo12">YOLO12</button>
+                <button class="subtab" data-family="custom">Custom .pt</button>
+              </div>
+            </div>
+            <div id="modelPickerGrid" class="model-grid"></div>
+          </div>
+
+          <!-- Hyperparameter Editor with Rich Notes -->
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>🎛️ Tinh chỉnh Thông số &amp; Note Description (Tác động chi tiết)</h3>
+              <div class="subtabs" id="paramGroupTabs">
+                <button class="subtab active" data-group="all">Tất cả</button>
+                <button class="subtab" data-group="basic">Cơ bản</button>
+                <button class="subtab" data-group="optimizer">Tối ưu &amp; Freeze</button>
+                <button class="subtab" data-group="small_data">Tối ưu &lt;100 ảnh</button>
+                <button class="subtab" data-group="augmentation">Biến đổi Hình học 3D</button>
+                <button class="subtab" data-group="hardware">Phần cứng &amp; TF32</button>
+              </div>
+            </div>
+            <div id="hyperparamList" class="param-grid"></div>
+          </div>
+
+          <!-- Auto-Export Post-Training -->
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>📦 Tự động xuất định dạng ngay sau khi Train xong (Tùy chọn)</h3>
+              <div class="inline-row">
+                <label>Độ chính xác xuất:</label>
+                <select id="autoExportPrecision" class="input input-sm">
+                  <option value="fp32">FP32 (Chuẩn)</option>
+                  <option value="tf32">TF32 (NVIDIA RTX Tensor Cores)</option>
+                  <option value="fp16">FP16 (Nhẹ 1/2 — Mobile / GPU)</option>
+                  <option value="int8">INT8 (Siêu nhẹ — Hiệu chuẩn từ dataset)</option>
+                </select>
+              </div>
+            </div>
+            <div id="autoExportFormatChips" class="format-check-grid"></div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             TAB 4: LIVE WEBSOCKET TRAINING DASHBOARD
+             ========================================================= -->
+        <section id="tab-train" class="tab-panel">
+          <div class="section-header">
+            <div>
+              <h1>4. Theo dõi Huấn luyện Thời gian thực (WebSocket Live)</h1>
+              <p>Cập nhật tức thì Loss, mAP50, mAP50-95, Precision, Recall theo từng epoch qua kênh WebSocket 2 chiều.</p>
+            </div>
+            <div class="header-actions">
+              <button id="btnTrainStart" class="btn btn-primary">🚀 Bắt đầu Train</button>
+              <button id="btnTrainStop" class="btn btn-danger" disabled>⏹ Dừng an toàn (Lưu best.pt)</button>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div class="card train-status-card">
+            <div class="train-status-top">
+              <div>
+                <span id="trainStatusBadge" class="badge badge-muted">Sẵn sàng (Idle)</span>
+                <strong id="trainRunTitle" class="ml-8">Chưa bắt đầu phiên huấn luyện</strong>
+              </div>
+              <div class="train-timers">
+                <span id="trainEpochLabel">Epoch: 0 / 0</span>
+                <span id="trainElapsedLabel">Đã chạy: 0s</span>
+                <span id="trainEtaLabel">Còn lại: --</span>
+              </div>
+            </div>
+            <div class="progress-track lg mt-12">
+              <div id="trainProgressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="trainDatasetStrip" class="muted-text mt-8"></div>
+          </div>
+
+          <!-- 4 Live KPI Cards -->
+          <div class="kpi-grid-4 mt-16">
+            <div class="kpi-card">
+              <div class="kpi-label">mAP@50 (Độ chính xác nhận diện)</div>
+              <div class="kpi-value" id="kpiMap50">0.0%</div>
+              <div class="kpi-sub" id="kpiBestMap50">Cao nhất: 0.0%</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">mAP@50-95 (Độ khớp khung box)</div>
+              <div class="kpi-value" id="kpiMap5095">0.0%</div>
+              <div class="kpi-sub" id="kpiBestMap5095">Cao nhất: 0.0%</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Precision (Độ chuẩn xác)</div>
+              <div class="kpi-value" id="kpiPrecision">0.0%</div>
+              <div class="kpi-sub">Ít nhận diện nhầm</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Recall (Độ phủ vật thể)</div>
+              <div class="kpi-value" id="kpiRecall">0.0%</div>
+              <div class="kpi-sub">Ít bỏ sót vật thể</div>
+            </div>
+          </div>
+
+          <!-- Live Charts -->
+          <div class="grid-2 mt-16">
+            <div class="card">
+              <div class="card-header">
+                <h3>📉 Biểu đồ Loss theo Epoch (Box / Cls / DFL)</h3>
+              </div>
+              <canvas id="lossChartCanvas" class="chart-canvas"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <h3>📈 Biểu đồ Độ chính xác (mAP50 / mAP50-95 / P / R)</h3>
+              </div>
+              <canvas id="metricsChartCanvas" class="chart-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Run History & Validation Plots -->
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>🗂️ Lịch sử các phiên Huấn luyện &amp; Biểu đồ đánh giá Ultralytics</h3>
+              <button id="btnRefreshRuns" class="btn btn-secondary btn-sm">↻ Làm mới</button>
+            </div>
+            <div id="runsTableWrap" class="table-wrap"></div>
+            <div id="runPlotsGallery" class="plots-grid mt-12"></div>
+          </div>
+        </section>
+
+        <!-- =========================================================
+             TAB 5: MULTI-FORMAT EXPORT & LIVE INFERENCE PLAYGROUND
+             ========================================================= -->
+        <section id="tab-export" class="tab-panel">
+          <div class="section-header">
+            <div>
+              <h1>5. Xuất Đa định dạng (ONNX · TF32 · PT · LiteRT · NCNN · OpenVINO) &amp; Kiểm thử</h1>
+              <p>Chuyển đổi trọng số đã train sang hàng loạt định dạng triển khai cho Android, Linux, Windows và chạy thử nhận diện trực tiếp ngay trên trình duyệt.</p>
+            </div>
+          </div>
+
+          <div class="grid-2-uneven">
+            <!-- Export Panel -->
+            <div class="card">
+              <div class="card-header">
+                <h3>📤 Xuất Model Đa định dạng</h3>
+              </div>
+              <div class="form-grid-2">
+                <div class="field">
+                  <label>Chọn trọng số nguồn (best.pt)</label>
+                  <select id="exportWeightSelect" class="input"></select>
+                </div>
+                <div class="field">
+                  <label>Độ chính xác / Lượng tử hóa (Precision)</label>
+                  <select id="exportPrecision" class="input">
+                    <option value="fp32">FP32 — Chuẩn độ chính xác cao nhất</option>
+                    <option value="tf32">TF32 — NVIDIA TensorFloat-32 (RTX 30/40)</option>
+                    <option value="fp16">FP16 — Giảm 50% dung lượng (Mobile / GPU)</option>
+                    <option value="int8">INT8 — Siêu nhẹ 1/4 (Edge / Android)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Kích thước ảnh xuất (imgsz)</label>
+                  <select id="exportImgsz" class="input">
+                    <option value="320">320 px (Siêu nhẹ Mobile)</option>
+                    <option value="416">416 px (Android / RPi)</option>
+                    <option value="512">512 px</option>
+                    <option value="640" selected>640 px (Chuẩn cân bằng)</option>
+                    <option value="800">800 px</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Tùy chọn đồ thị xuất</label>
+                  <div class="inline-row mt-4">
+                    <label class="check-label"><input type="checkbox" id="exportSimplify" checked /> Simplify ONNX</label>
+                    <label class="check-label"><input type="checkbox" id="exportDynamic" /> Dynamic shape</label>
+                    <label class="check-label"><input type="checkbox" id="exportNms" /> Nhúng NMS</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-12">
+                <label class="field-label-bold">Chọn các định dạng muốn xuất cùng lúc:</label>
+                <div id="exportFormatCards" class="export-format-grid mt-8"></div>
+              </div>
+
+              <div class="inline-row mt-16">
+                <button id="btnRunExport" class="btn btn-primary">📤 Xuất các định dạng đã chọn</button>
+                <span id="exportStatusText" class="muted-text"></span>
+              </div>
+            </div>
+
+            <!-- Live Inference Test Playground -->
+            <div class="card">
+              <div class="card-header">
+                <h3>🔬 Kiểm thử Nhận diện Trực tiếp (Test Playground)</h3>
+              </div>
+              <p class="muted-text">Tải một ảnh bất kỳ để kiểm tra tức thì mô hình vừa train nhận diện khối lập phương, hình trụ, hình cầu chính xác thế nào.</p>
+              <div class="form-grid-2 mt-8">
+                <div class="field">
+                  <label>Mô hình kiểm thử</label>
+                  <select id="testWeightSelect" class="input"></select>
+                </div>
+                <div class="field">
+                  <label>Ngưỡng tin cậy (Conf): <strong id="testConfVal">0.25</strong></label>
+                  <input type="range" id="testConf" min="0.05" max="0.95" step="0.05" value="0.25" />
+                </div>
+              </div>
+              <div class="inline-row mt-8">
+                <input type="file" id="inputTestImage" accept="image/*" class="input flex-1" />
+                <button id="btnRunTest" class="btn btn-primary">🔍 Nhận diện ngay</button>
+              </div>
+              <div id="testResultWrap" class="test-result-box mt-12">
+                <div class="muted-text">Kết quả ảnh đã vẽ khung nhận diện và thời gian suy luận (ms) sẽ hiển thị ở đây.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exported Artifacts Vault -->
+          <div class="card mt-16">
+            <div class="card-header">
+              <h3>🗄️ Kho File Model đã xuất (Tải xuống &amp; Code tích hợp)</h3>
+              <button id="btnRefreshExports" class="btn btn-secondary btn-sm">↻ Làm mới</button>
+            </div>
+            <div id="artifactsTableWrap" class="table-wrap"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Bottom Collapsible Live WebSocket Console -->
+    <footer class="console-drawer" id="consoleDrawer">
+      <div class="console-header" id="consoleToggle">
+        <div class="inline-row">
+          <span class="console-dot"></span>
+          <strong>WebSocket Live Terminal</strong>
+          <span id="consoleLastLine" class="console-preview">Sẵn sàng nhận luồng dữ liệu WebSocket...</span>
+        </div>
+        <div class="inline-row">
+          <button id="btnClearConsole" class="btn-ghost" title="Xóa log">Xóa</button>
+          <span id="consoleChevron">▲ Mở rộng</span>
+        </div>
+      </div>
+      <div class="console-body" id="consoleBody"></div>
+    </footer>
+  </div>
+
+  <!-- Modal: New Project / Code Snippet / CUDA Guide -->
+  <div id="modalOverlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="modalTitle">Tiêu đề</h3>
+        <button id="modalClose" class="btn-ghost">✕</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast Stack -->
+  <div id="toastStack" class="toast-stack"></div>
+
+  <script src="/static/app.js?v=4"></script>
+</body>
+</html>
